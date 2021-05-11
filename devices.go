@@ -3,6 +3,8 @@ package packngo
 import (
 	"fmt"
 	"path"
+
+	"github.com/packethost/packngo/href"
 )
 
 const deviceBasePath = "/devices"
@@ -364,15 +366,33 @@ func (s *DeviceServiceOp) List(projectID string, opts *ListOptions) (devices []D
 	}
 }
 
+func (d *Device) GetHref() string {
+	if d == nil {
+		return ""
+	}
+	return d.Href
+}
+
+// Hydrate fetches and populates a resource based on the resources Href.
+// DeviceServiceOp.Hydrate specifically adds facility to the response.
+func (s *DeviceServiceOp) Hydrate(resource href.Hrefer, opts *GetOptions) (*Response, error) {
+	opts = opts.Including("facility")
+
+	apiPathQuery := opts.WithQuery(resource.GetHref())
+
+	resp, err := s.client.DoRequest("GET", apiPathQuery, nil, resource)
+	if err != nil {
+		return resp, err
+	}
+	return resp, err
+}
+
 // Get returns a device by id
 func (s *DeviceServiceOp) Get(deviceID string, opts *GetOptions) (*Device, *Response, error) {
-	opts = opts.Including("facility")
-	endpointPath := path.Join(deviceBasePath, deviceID)
-	apiPathQuery := opts.WithQuery(endpointPath)
-	device := new(Device)
-	resp, err := s.client.DoRequest("GET", apiPathQuery, nil, device)
+	device := &Device{Href: path.Join(deviceBasePath, deviceID)}
+	resp, err := s.Hydrate(device, opts)
 	if err != nil {
-		return nil, resp, err
+		device = nil
 	}
 	return device, resp, err
 }
